@@ -45,6 +45,12 @@
             opacity: 1;
             bottom: 50px;
         }
+        
+        /* Custom scrollbar for lists */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -133,6 +139,20 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <!-- Section 6: Trainee List (รายชื่อพนักงาน) - ADDED SECTION -->
+            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200 mt-6">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-base font-bold text-slate-900 flex items-center tracking-wide">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500 mr-2.5"></span>
+                        รายชื่อพนักงานฝึกอบรมแยกตามเดือน (TRAINEE LIST)
+                    </h3>
+                </div>
+                <!-- Container for dynamically generated month cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4" id="dashboard-trainee-list-container">
+                    <!-- Data populated via JS -->
                 </div>
             </div>
 
@@ -508,6 +528,7 @@
                 if (typeof renderCharts === 'function') renderCharts(); 
                 if (typeof updateDashboardLines === 'function') updateDashboardLines();
                 if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+                if (typeof renderTraineeList === 'function') renderTraineeList(); // Call render trainee list
             }
         }
 
@@ -737,6 +758,11 @@
                         if (res.dataTraining && res.dataTraining.length > 0) processTrainingData(res.dataTraining);
                         if (res.dataPlanTraining && res.dataPlanTraining.length > 0) processPlanTrainingData(res.dataPlanTraining);
                         
+                        // เพิ่มการประมวลผลสำหรับรายชื่อพนักงาน
+                        if (res.dataNameTraining && res.dataNameTraining.length > 0) {
+                            processNameTrainingData(res.dataNameTraining);
+                        }
+                        
                         showToast('ซิงค์ข้อมูลสำเร็จ!');
                         localStorage.setItem('productionManpowerApp', JSON.stringify(appState));
                         
@@ -744,6 +770,7 @@
                         const dashboardView = document.getElementById('view-dashboard');
                         if(dashboardView && !dashboardView.classList.contains('hidden')) {
                             if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+                            if (typeof renderTraineeList === 'function') renderTraineeList();
                         }
                     } else {
                         showToast('รูปแบบข้อมูลใน Google Sheet ไม่ถูกต้อง');
@@ -921,6 +948,54 @@
             appState.planTrainingStatuses = statuses;
         }
 
+        // --- NEW FUNCTION: PROCESS NAME TRAINING DATA ---
+        function processNameTrainingData(data) {
+            if (!data || data.length < 2) return;
+            let trainees = [];
+            
+            let header = data[0].map(h => h ? h.toString().toLowerCase() : '');
+            let nameIdx = header.findIndex(h => h.includes('name'));
+            let roleIdx = header.findIndex(h => h.includes('process') || h.includes('role'));
+            let monthIdx = header.findIndex(h => h.includes('month'));
+            let statusIdx = header.findIndex(h => h.includes('status'));
+
+            if (nameIdx !== -1 && roleIdx !== -1 && monthIdx !== -1 && statusIdx !== -1) {
+                for (let i = 1; i < data.length; i++) {
+                    if (!data[i][nameIdx]) continue; // ข้ามแถวที่ไม่มีชื่อ
+                    
+                    let rawMonth = data[i][monthIdx] ? data[i][monthIdx].toString().trim() : '';
+                    let rawStatus = data[i][statusIdx] ? data[i][statusIdx].toString().trim() : '';
+                    
+                    // ปรับรูปแบบเดือนให้ตรงกับ UI
+                    let monthMap = { 'aug': 'Aug', 'sep': 'Sep', 'oct': 'Oct', 'nov': 'Nov', 'dec': 'Dec' };
+                    let matchedMonth = '';
+                    for (const key in monthMap) {
+                        if (rawMonth.toLowerCase().includes(key)) {
+                            matchedMonth = monthMap[key];
+                            break;
+                        }
+                    }
+                    if(!matchedMonth) matchedMonth = rawMonth;
+
+                    // อิงตาม Status ใน Sheet: "Training", "Pass", "Not Pass", "Plan"
+                    let matchedStatus = 'Training';
+                    let sLow = rawStatus.toLowerCase();
+                    if (sLow.includes('not pass')) matchedStatus = 'Not Pass';
+                    else if (sLow.includes('pass')) matchedStatus = 'Pass';
+                    else if (sLow.includes('plan')) matchedStatus = 'Plan';
+                    else if (sLow.includes('training')) matchedStatus = 'Training';
+
+                    trainees.push({
+                        name: data[i][nameIdx].toString().trim(),
+                        role: data[i][roleIdx].toString().trim(),
+                        month: matchedMonth,
+                        status: matchedStatus
+                    });
+                }
+            }
+            appState.trainees = trainees;
+        }
+
         function exportCSV() {
             let csvContent = "\uFEFF"; 
             const dataArray = generateExportArray();
@@ -1043,6 +1118,92 @@
             });
             sumTr.innerHTML = sumHtml;
             tbody.appendChild(sumTr);
+        }
+
+        // --- NEW FUNCTION: RENDER TRAINEE LIST ---
+        function renderTraineeList() {
+            const container = document.getElementById('dashboard-trainee-list-container');
+            if (!container) return;
+
+            const months = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthNames = {'Aug': 'สิงหาคม', 'Sep': 'กันยายน', 'Oct': 'ตุลาคม', 'Nov': 'พฤศจิกายน', 'Dec': 'ธันวาคม'};
+            let html = '';
+            
+            // ดึงข้อมูลจาก State ที่ได้จาก Google Sheet (หรือใช้อาเรย์ว่างถ้าไม่มีข้อมูล)
+            const allTrainees = appState.trainees || [];
+
+            months.forEach(m => {
+                const monthTrainees = allTrainees.filter(t => t.month === m);
+                
+                // คำนวณจำนวน
+                let passCount = monthTrainees.filter(t => t.status === 'Pass').length;
+                let trainingCount = monthTrainees.filter(t => t.status === 'Training').length;
+                let notPassCount = monthTrainees.filter(t => t.status === 'Not Pass').length;
+
+                // กำหนดสไตล์ของ Card เดือน
+                const borderColors = {
+                    'Aug': 'border-t-blue-500', 'Sep': 'border-t-teal-500', 
+                    'Oct': 'border-t-indigo-500', 'Nov': 'border-t-emerald-500', 'Dec': 'border-t-amber-500'
+                };
+                const monthBorder = borderColors[m] || 'border-t-slate-500';
+
+                html += `
+                    <div class="bg-white rounded-xl border border-slate-200 border-t-4 ${monthBorder} shadow-sm overflow-hidden flex flex-col h-72">
+                        <div class="p-3 border-b border-slate-100 bg-slate-50/50">
+                            <h4 class="font-bold text-slate-800 text-center mb-2">${m} <span class="text-xs font-normal text-slate-500">(${monthNames[m]})</span></h4>
+                            <div class="flex justify-center space-x-1.5 text-[10px] font-bold uppercase tracking-wider flex-wrap gap-y-1">
+                                <span class="bg-emerald-100 text-emerald-700 px-1.5 py-1 rounded flex items-center">
+                                    <i class="ph-fill ph-check-circle mr-1"></i> Pass: ${passCount}
+                                </span>
+                                <span class="bg-blue-100 text-blue-700 px-1.5 py-1 rounded flex items-center">
+                                    <i class="ph-bold ph-spinner mr-1"></i> Train: ${trainingCount}
+                                </span>
+                                ${notPassCount > 0 ? `<span class="bg-red-100 text-red-700 px-1.5 py-1 rounded flex items-center"><i class="ph-fill ph-x-circle mr-1"></i> Not Pass: ${notPassCount}</span>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="p-2 flex-grow overflow-y-auto custom-scrollbar">
+                `;
+
+                if (monthTrainees.length === 0) {
+                    html += `<div class="h-full flex items-center justify-center text-sm text-slate-400 italic">ไม่มีข้อมูลในเดือนนี้</div>`;
+                } else {
+                    html += `<ul class="space-y-1.5">`;
+                    monthTrainees.forEach(t => {
+                        let statusColor, icon, bgBadge;
+                        if (t.status === 'Pass') {
+                            statusColor = 'text-emerald-600'; icon = 'ph-fill ph-check-circle'; bgBadge = 'bg-emerald-50 border border-emerald-100';
+                        } else if (t.status === 'Not Pass') {
+                            statusColor = 'text-red-600'; icon = 'ph-fill ph-x-circle'; bgBadge = 'bg-red-50 border border-red-100';
+                        } else if (t.status === 'Plan') {
+                            statusColor = 'text-slate-500'; icon = 'ph-fill ph-calendar-blank'; bgBadge = 'bg-slate-50 border border-slate-200';
+                        } else { // Training
+                            statusColor = 'text-blue-600'; icon = 'ph-bold ph-spinner'; bgBadge = 'bg-blue-50 border border-blue-100';
+                        }
+
+                        html += `
+                            <li class="flex justify-between items-center bg-white border border-slate-100 p-2 rounded hover:shadow-sm transition">
+                                <div class="truncate pr-2 max-w-[65%]">
+                                    <p class="text-sm font-semibold text-slate-700 truncate" title="${t.name}">${t.name}</p>
+                                    <p class="text-[10px] text-slate-500 truncate" title="${t.role}">${t.role}</p>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center ${bgBadge} ${statusColor} px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                    <i class="${icon} mr-1"></i>
+                                    <span>${t.status}</span>
+                                </div>
+                            </li>
+                        `;
+                    });
+                    html += `</ul>`;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
         }
 
         function updateDashboardStats() {
@@ -1175,6 +1336,7 @@
                 if (typeof initAdminForm === 'function') initAdminForm();
                 if (typeof updateDashboardLines === 'function') updateDashboardLines();
                 if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+                if (typeof renderTraineeList === 'function') renderTraineeList(); // Initialize new Trainee List
                 if (typeof renderCharts === 'function') renderCharts();
                 
                 // ดึงข้อมูลล่าสุดจาก Google Sheet โดยอัตโนมัติเมื่อเปิดหน้าเว็บ
