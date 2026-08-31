@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Training Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body { font-family: 'Prompt', 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-btn { transition: all 0.2s ease; }
+        .tab-btn.active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .data-input { 
+            width: 100%; min-width: 45px; text-align: center; background: transparent; 
+            outline: none; border-radius: 4px; transition: background 0.2s;
+            font-size: 0.875rem; font-weight: 500; padding: 2px;
+        }
+        .data-input:focus { background: #e0e7ff; box-shadow: 0 0 0 2px #818cf8; }
+        .data-cell { padding: 8px 4px; border: 1px solid #e2e8f0; vertical-align: middle; }
+        
+        /* Toast notification setup */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #334155;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 50;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <nav class="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-200">
+        <div class="max-w-[98%] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="ph-fill ph-users-three text-3xl text-blue-600 mr-2"></i>
+                    <h1 class="text-xl font-bold text-slate-800 tracking-wide">Production Training Plan</h1>
+                </div>
+                <div class="flex space-x-8">
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-slate-500 hover:text-slate-700">
+                        <i class="ph ph-chart-bar mr-1 text-lg"></i> แดชบอร์ด
+                    </button>
+                    <button onclick="switchTab('training')" id="tab-training" class="tab-btn inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-slate-500 hover:text-slate-700">
+                        <i class="ph ph-book-open-text mr-1 text-lg"></i> รายละเอียดการอบรม
+                    </button>
+                    <button onclick="switchTab('admin')" id="tab-admin" class="tab-btn inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-slate-500 hover:text-slate-700">
+                        <i class="ph ph-pencil-simple mr-1 text-lg"></i> จัดการข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-[98%] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- ========================================== -->
+        <!-- TAB 1: DASHBOARD                           -->
+        <!-- ========================================== -->
+        <div id="view-dashboard" class="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+            
+            <!-- Section 1: Current Headcount by Role -->
+            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 mr-2.5"></span>
+                    จำนวนพนักงานปัจจุบันแยกตามตำแหน่ง (CURRENT HEADCOUNT)
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3" id="current-headcount-container">
+                    <!-- Data populated via JS -->
+                </div>
+            </div>
+
+            <!-- Section 4: Line Targets -->
+            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500 mr-2.5"></span>
+                    แผนการเปิดสายการผลิต (PRODUCTION LINE TARGET)
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="dashboard-lines-container">
+                    <!-- Data populated via JS -->
+                </div>
+            </div>
+
+            <!-- Section 5: Dashboard Manpower Table (ตารางกำลังคน) -->
+            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-2.5"></span>
+                    ตารางกำลังคน (MANPOWER PLANNING)
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto p-1">
+                        <table class="w-full text-sm text-left whitespace-nowrap border-collapse min-w-[1200px]">
+                            <thead>
+                                <tr class="text-slate-700 border-b border-slate-200">
+                                    <th class="data-cell text-center font-bold bg-slate-50 sticky left-0 z-10 border-r border-slate-200" rowspan="2">Role</th>
+                                    <th class="data-cell text-center font-bold bg-slate-50 border-r border-slate-200" rowspan="2">Need/<br>Shift</th>
+                                    <th class="data-cell text-center font-bold bg-slate-50 border-r border-slate-200" rowspan="2">Current<br>Q'ty</th>
+                                    <th class="data-cell text-center font-bold bg-blue-50/70 border-r border-slate-200" colspan="4">Aug</th>
+                                    <th class="data-cell text-center font-bold bg-teal-50/70 border-r border-slate-200" colspan="4">Sep</th>
+                                    <th class="data-cell text-center font-bold bg-indigo-50/70 border-r border-slate-200" colspan="4">Oct</th>
+                                    <th class="data-cell text-center font-bold bg-emerald-50/70 border-r border-slate-200" colspan="4">Nov</th>
+                                    <th class="data-cell text-center font-bold bg-amber-50/70" colspan="4">Dec</th>
+                                </tr>
+                                <tr class="text-slate-600 border-b border-slate-200 text-xs">
+                                    <th class="data-cell text-center font-semibold bg-blue-50/30">Target</th><th class="data-cell text-center font-semibold bg-blue-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-blue-50/30">Training</th><th class="data-cell text-center font-semibold bg-blue-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-teal-50/30">Target</th><th class="data-cell text-center font-semibold bg-teal-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-teal-50/30">Training</th><th class="data-cell text-center font-semibold bg-teal-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-indigo-50/30">Target</th><th class="data-cell text-center font-semibold bg-indigo-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-indigo-50/30">Training</th><th class="data-cell text-center font-semibold bg-indigo-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-emerald-50/30">Target</th><th class="data-cell text-center font-semibold bg-emerald-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-emerald-50/30">Training</th><th class="data-cell text-center font-semibold bg-emerald-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-amber-50/30">Target</th><th class="data-cell text-center font-semibold bg-amber-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-amber-50/30">Training</th><th class="data-cell text-center font-semibold bg-amber-50/30">Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-manpower-tbody">
+                                <!-- Data populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Training Volume Stacked Bar -->
+                <div class="glass-panel p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
+                    <h3 class="text-lg font-semibold text-slate-800 mb-4">ปริมาณการฝึกอบรมแต่ละเดือน (Monthly Batch Load)</h3>
+                    <div class="relative h-72">
+                        <canvas id="monthlyLoadChart"></canvas>
+                    </div>
+                </div>
+                <!-- Role Distribution Donut -->
+                <div class="glass-panel p-5 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-semibold text-slate-800 mb-4">สัดส่วนผู้เข้ารับการฝึกอบรม</h3>
+                    <div class="relative h-72 flex justify-center">
+                        <canvas id="roleDistChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trajectory Chart -->
+            <div class="glass-panel p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-slate-800">แนวโน้มเป้าหมายกำลังคนเปรียบเทียบคนพร้อมทำงาน (Target vs Actual)</h3>
+                    <select id="trajectoryRoleSelect" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none shadow-sm cursor-pointer" onchange="renderCharts()">
+                        <option value="All">รวมทุกตำแหน่ง (All Roles)</option>
+                        <!-- Roles populated via JS -->
+                    </select>
+                </div>
+                <div class="relative h-80">
+                    <canvas id="trajectoryChart"></canvas>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: TRAINING DETAILS                    -->
+        <!-- ========================================== -->
+        <div id="view-training" class="hidden space-y-6 animate-[fadeIn_0.3s_ease-out]">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+                    <i class="ph-fill ph-book-open text-blue-600 mr-3"></i> รายละเอียดแผนการฝึกอบรมพนักงานสายการผลิต
+                </h2>
+                <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-medium text-sm border border-blue-100 shadow-sm">
+                    <i class="ph ph-calendar-blank mr-1"></i> รอบเดือนสิงหาคม (Batch 1)
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Group 1: Supervisor -->
+                <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-blue-500 relative overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph-fill ph-user-gear text-6xl"></i></div>
+                    <span class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold mb-4 w-max">ชุดที่ 1</span>
+                    <h3 class="text-xl font-bold text-slate-800 mb-1">Supervisor</h3>
+                    <p class="text-sm text-slate-500 mb-6">ทักษะการจัดการและการควบคุมสายการผลิต</p>
+                    
+                    <div class="space-y-4 flex-grow">
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-clock text-slate-400 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ระยะเวลาการฝึก</p>
+                                <p class="text-sm font-medium text-slate-800">4 สัปดาห์ (24 วันทำงาน)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-calendar-check text-emerald-500 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
+                                <p class="text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-users text-blue-500 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">จำนวนผู้เข้ารับการฝึก</p>
+                                <p class="text-lg font-bold text-blue-600">3 คน <span class="text-xs font-normal text-slate-500">(อ้างอิงแผน ส.ค.)</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Curriculum Section -->
+                    <div class="mt-6 pt-5 border-t border-slate-100">
+                        <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">
+                            <i class="ph-fill ph-list-bullets mr-1.5 text-blue-500"></i> หัวข้อย่อยการฝึกอบรม
+                        </h4>
+                        <ul class="space-y-2.5">
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">1. การจัดการความปลอดภัยและนโยบายบริษัท</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">3 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">2. การบริหารกำลังคนและความเป็นผู้นำ (Leadership)</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">5 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">3. การควบคุมคุณภาพและการแก้ปัญหา (QC Tools)</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">6 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">4. การจัดการสายการผลิตจริง (OJT) และประเมินผล</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">10 วัน</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Group 2: Leader -->
+                <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-amber-500 relative overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph-fill ph-users-three text-6xl"></i></div>
+                    <span class="inline-block px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold mb-4 w-max">ชุดที่ 2</span>
+                    <h3 class="text-xl font-bold text-slate-800 mb-1">Leader</h3>
+                    <p class="text-sm text-slate-500 mb-6">ทักษะการคุมสายงานและสนับสนุนกระบวนการผลิต</p>
+                    
+                    <div class="space-y-4 flex-grow">
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-clock text-slate-400 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ระยะเวลาการฝึก</p>
+                                <p class="text-sm font-medium text-slate-800">4 สัปดาห์ (24 วันทำงาน)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-calendar-check text-emerald-500 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
+                                <p class="text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-users text-amber-500 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">จำนวนผู้เข้ารับการฝึก</p>
+                                <p class="text-lg font-bold text-amber-600">5 คน <span class="text-xs font-normal text-slate-500">(อ้างอิงแผน ส.ค.)</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Curriculum Section -->
+                    <div class="mt-6 pt-5 border-t border-slate-100">
+                        <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">
+                            <i class="ph-fill ph-list-bullets mr-1.5 text-amber-500"></i> หัวข้อย่อยการฝึกอบรม
+                        </h4>
+                        <ul class="space-y-2.5">
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">1. มาตรฐานการทำงาน (Standardized Work) และความปลอดภัย</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">4 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">2. การเตรียมความพร้อมและการควบคุม Line การผลิต</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">5 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">3. การวิเคราะห์ปัญหาเบื้องต้นและการจ่ายงาน</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">5 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">4. ฝึกปฏิบัติงานจริง (OJT) และวัดผล KPI ประจำวัน</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">10 วัน</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Group 3: Technical Operations -->
+                <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-purple-500 relative overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph-fill ph-wrench text-6xl"></i></div>
+                    <span class="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold mb-4 w-max">ชุดที่ 3</span>
+                    <h3 class="text-xl font-bold text-slate-800 mb-1">Technical Operations</h3>
+                    <p class="text-sm text-slate-500 mb-6">ทักษะทางเทคนิคเฉพาะทางในสายการผลิต</p>
+                    
+                    <div class="space-y-4 flex-grow">
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-clock text-slate-400 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ระยะเวลาการฝึก</p>
+                                <p class="text-sm font-medium text-slate-800">4 สัปดาห์ (24 วันทำงาน)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-calendar-check text-emerald-500 mt-1 mr-3 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
+                                <p class="text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="ph-fill ph-users text-purple-500 mt-1 mr-3 text-lg"></i>
+                            <div class="w-full">
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">จำนวนตามตำแหน่ง (รอบ ส.ค.)</p>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between"><span class="text-slate-600">Welding</span><span class="font-bold">11</span></div>
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between"><span class="text-slate-600">Vacuum</span><span class="font-bold">9</span></div>
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between"><span class="text-slate-600">Pinch Off</span><span class="font-bold">7</span></div>
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between"><span class="text-slate-600">Cooling</span><span class="font-bold">14</span></div>
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between col-span-2"><span class="text-slate-600">Repair</span><span class="font-bold">9</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Curriculum Section -->
+                    <div class="mt-6 pt-5 border-t border-slate-100">
+                        <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">
+                            <i class="ph-fill ph-list-bullets mr-1.5 text-purple-500"></i> หัวข้อย่อยการฝึกอบรม
+                        </h4>
+                        <ul class="space-y-2.5">
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">1. ทักษะพื้นฐานโรงงานและการใช้เครื่องมืออย่างปลอดภัย</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">4 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">2. ฝึกทักษะเฉพาะทางตามสถานี (เชื่อม/ชาร์จ/ประกอบ)</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">8 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">3. การเรียนรู้ข้อบกพร่อง (Defect) และวิธีการแก้ไขชิ้นงาน</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">4 วัน</span>
+                            </li>
+                            <li class="flex justify-between items-start text-sm">
+                                <span class="text-slate-600 pr-2">4. ฝึกจับเวลาความเร็ว (Speed Test) และสอบใบเซอร์</span>
+                                <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">8 วัน</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: ADMIN / DATA MANAGEMENT             -->
+        <!-- ========================================== -->
+        <div id="view-admin" class="hidden space-y-8 animate-[fadeIn_0.3s_ease-out]">
+            <!-- Action Buttons & Status -->
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <span id="save-status-text" class="text-sm font-medium text-slate-400 flex items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                        <i class="ph-fill ph-cloud-check mr-2 text-lg"></i> พร้อมใช้งาน
+                    </span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="exportCSV()" class="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition flex items-center shadow-sm font-medium">
+                        <i class="ph ph-download-simple mr-2 text-lg"></i> ดาวน์โหลด CSV
+                    </button>
+                    <button onclick="syncFromGoogleSheet()" id="btn-sync" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
+                        <i class="ph ph-arrows-clockwise mr-2 text-lg"></i> ซิงค์จาก Sheet ล่าสุด
+                    </button>
+                </div>
+            </div>
+
+            <!-- Section 1: Line Targets -->
+            <div id="admin-lines-form">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">1. เป้าหมายสายการผลิต (Line Targets)</h3>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="admin-lines-container">
+                    <!-- Data populated via JS -->
+                </div>
+            </div>
+
+            <!-- Section 2: Manpower Table -->
+            <div>
+                <h3 class="text-lg font-bold text-slate-800 mb-4">2. ตารางกำลังคน (Manpower Planning)</h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto p-1">
+                        <table class="w-full text-sm text-left whitespace-nowrap border-collapse min-w-[1200px]">
+                            <thead>
+                                <tr class="text-slate-700 border-b border-slate-200">
+                                    <th class="data-cell text-center font-bold bg-slate-50 sticky left-0 z-10 border-r border-slate-200" rowspan="2">Role</th>
+                                    <th class="data-cell text-center font-bold bg-slate-50 border-r border-slate-200" rowspan="2">Need/<br>Shift</th>
+                                    <th class="data-cell text-center font-bold bg-slate-50 border-r border-slate-200" rowspan="2">Current<br>Q'ty</th>
+                                    <th class="data-cell text-center font-bold bg-blue-50/70 border-r border-slate-200" colspan="4">Aug</th>
+                                    <th class="data-cell text-center font-bold bg-teal-50/70 border-r border-slate-200" colspan="4">Sep</th>
+                                    <th class="data-cell text-center font-bold bg-indigo-50/70 border-r border-slate-200" colspan="4">Oct</th>
+                                    <th class="data-cell text-center font-bold bg-emerald-50/70 border-r border-slate-200" colspan="4">Nov</th>
+                                    <th class="data-cell text-center font-bold bg-amber-50/70" colspan="4">Dec</th>
+                                </tr>
+                                <tr class="text-slate-600 border-b border-slate-200 text-xs">
+                                    <th class="data-cell text-center font-semibold bg-blue-50/30">Target</th><th class="data-cell text-center font-semibold bg-blue-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-blue-50/30">Training</th><th class="data-cell text-center font-semibold bg-blue-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-teal-50/30">Target</th><th class="data-cell text-center font-semibold bg-teal-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-teal-50/30">Training</th><th class="data-cell text-center font-semibold bg-teal-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-indigo-50/30">Target</th><th class="data-cell text-center font-semibold bg-indigo-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-indigo-50/30">Training</th><th class="data-cell text-center font-semibold bg-indigo-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-emerald-50/30">Target</th><th class="data-cell text-center font-semibold bg-emerald-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-emerald-50/30">Training</th><th class="data-cell text-center font-semibold bg-emerald-50/30 border-r border-slate-200">Diff</th>
+                                    <th class="data-cell text-center font-semibold bg-amber-50/30">Target</th><th class="data-cell text-center font-semibold bg-amber-50/30">Actual</th><th class="data-cell text-center font-semibold text-blue-700 bg-amber-50/30">Training</th><th class="data-cell text-center font-semibold bg-amber-50/30">Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-manpower-tbody">
+                                <!-- Data populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast">Message</div>
+
+    <script>
+        // 1. DATA STATE & INITIALIZATION
+        // Hardcoded Google Apps Script Web App URL for Auto-save and Sync
+        const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz-w3fmql2Vls_nq89wkju6x8qTpD6r_fvw264XQ3W5bg4u7L8T6lPPLtdrKi0k6RPZ/exec';
+        
+        const defaultData = {
+            lines: [
+                { month: 'Aug', a01: 4, a02: 0 },
+                { month: 'Sep', a01: 5, a02: 2 },
+                { month: 'Oct', a01: 7, a02: 4 },
+                { month: 'Nov', a01: 10, a02: 4 },
+                { month: 'Dec', a01: 10, a02: 4 }
+            ],
+            manpower: [
+                { role: 'Supervisor', needShift: 1, current: 9, 
+                  data: [{t:4, a:9, tr:3, d:5}, {t:7, a:12, tr:1, d:5}, {t:11, a:13, tr:1, d:2}, {t:14, a:14, tr:0, d:0}, {t:14, a:14, tr:0, d:0}] },
+                { role: 'Leader', needShift: 4, current: 26, 
+                  data: [{t:16, a:26, tr:5, d:10}, {t:28, a:28, tr:10, d:0}, {t:44, a:38, tr:8, d:-6}, {t:56, a:46, tr:8, d:-10}, {t:56, a:54, tr:0, d:-2}] },
+                { role: 'Welding', needShift: 4, current: 16, 
+                  data: [{t:16, a:16, tr:11, d:0}, {t:28, a:27, tr:13, d:-1}, {t:44, a:40, tr:8, d:-4}, {t:56, a:48, tr:8, d:-8}, {t:56, a:56, tr:0, d:0}] },
+                { role: 'Vacuum/Charging', needShift: 4, current: 20, 
+                  data: [{t:16, a:20, tr:9, d:4}, {t:28, a:29, tr:11, d:1}, {t:44, a:40, tr:8, d:-4}, {t:56, a:48, tr:8, d:-8}, {t:56, a:56, tr:0, d:0}] },
+                { role: 'Pinch Off', needShift: 1, current: 6, 
+                  data: [{t:4, a:6, tr:7, d:2}, {t:7, a:13, tr:0, d:6}, {t:11, a:13, tr:0, d:2}, {t:14, a:13, tr:1, d:-1}, {t:14, a:14, tr:0, d:0}] },
+                { role: 'Cooling', needShift: 4, current: 14, 
+                  data: [{t:16, a:14, tr:14, d:-2}, {t:28, a:28, tr:12, d:0}, {t:44, a:40, tr:10, d:-4}, {t:56, a:50, tr:6, d:-6}, {t:56, a:56, tr:0, d:0}] },
+                { role: 'Repair', needShift: 3, current: 13, 
+                  data: [{t:12, a:13, tr:9, d:1}, {t:21, a:22, tr:8, d:1}, {t:33, a:30, tr:6, d:-3}, {t:42, a:36, tr:6, d:-6}, {t:42, a:42, tr:0, d:0}] }
+            ]
+        };
+
+        let appState = JSON.parse(localStorage.getItem('productionManpowerApp')) || defaultData;
+        if (!appState.lines) appState.lines = defaultData.lines; 
+        
+        // Ensure needShift exists
+        appState.manpower.forEach((m, idx) => {
+            if (m.needShift === undefined) m.needShift = defaultData.manpower[idx].needShift || 0;
+        });
+
+        let charts = {}; 
+        let autoSaveTimeout = null;
+        let isSyncing = false;
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            if(toast) {
+                toast.innerText = message;
+                toast.className = "show";
+                setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+            }
+        }
+
+        function switchTab(tabId) {
+            const dashboardView = document.getElementById('view-dashboard');
+            const trainingView = document.getElementById('view-training');
+            const adminView = document.getElementById('view-admin');
+            
+            if(dashboardView) dashboardView.classList.add('hidden');
+            if(trainingView) trainingView.classList.add('hidden');
+            if(adminView) adminView.classList.add('hidden');
+            
+            const tabs = ['tab-dashboard', 'tab-training', 'tab-admin'];
+            tabs.forEach(t => {
+                const el = document.getElementById(t);
+                if(el) el.classList.remove('active', 'border-blue-600', 'text-blue-600');
+            });
+            
+            const targetView = document.getElementById(`view-${tabId}`);
+            if(targetView) targetView.classList.remove('hidden');
+            
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            if(activeBtn) activeBtn.classList.add('active', 'border-blue-600', 'text-blue-600');
+            
+            if(tabId === 'dashboard') {
+                if (typeof renderCharts === 'function') renderCharts(); 
+                if (typeof updateDashboardLines === 'function') updateDashboardLines();
+                if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+            }
+        }
+
+        function initAdminForm() {
+            renderAdminLines();
+            renderAdminTable();
+        }
+
+        function renderAdminLines() {
+            const container = document.getElementById('admin-lines-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            appState.lines.forEach((line, idx) => {
+                container.innerHTML += `
+                    <div class="bg-white rounded-lg border border-slate-200 p-4 shadow-sm hover:shadow transition">
+                        <h4 class="text-sm font-bold text-slate-800 mb-4 text-center pb-2 border-b border-slate-100">${line.month} Lines</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-slate-600">A01:</span>
+                                <input type="number" class="w-16 text-center border border-slate-200 rounded p-1 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" 
+                                    value="${line.a01}" data-type="a01" data-lidx="${idx}" oninput="handleLineInput(event)">
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-slate-600">A02:</span>
+                                <input type="number" class="w-16 text-center border border-slate-200 rounded p-1 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" 
+                                    value="${line.a02}" data-type="a02" data-lidx="${idx}" oninput="handleLineInput(event)">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function handleLineInput(e) {
+            const input = e.target;
+            const val = parseInt(input.value) || 0;
+            const type = input.dataset.type;
+            const idx = input.dataset.lidx;
+            
+            appState.lines[idx][type] = val;
+            localStorage.setItem('productionManpowerApp', JSON.stringify(appState));
+            
+            updateDashboardLines();
+            triggerAutoSaveIndicator();
+        }
+
+        function renderAdminTable() {
+            const tbody = document.getElementById('admin-manpower-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            appState.manpower.forEach((roleData, rIdx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+                
+                let html = `
+                    <td class="data-cell font-bold text-slate-800 bg-white sticky left-0 z-10 px-3 whitespace-nowrap border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">${roleData.role}</td>
+                    <td class="data-cell text-center border-r border-slate-200"><input type="number" class="data-input font-medium text-slate-500" value="${roleData.needShift || 0}" data-type="needShift" data-ridx="${rIdx}"></td>
+                    <td class="data-cell text-center border-r border-slate-200 bg-slate-50/50"><input type="number" class="data-input font-semibold" value="${roleData.current}" data-type="current" data-ridx="${rIdx}"></td>
+                `;
+
+                roleData.data.forEach((monthData, mIdx) => {
+                    const diffColor = monthData.d < 0 ? 'text-red-500 font-bold' : 'text-slate-600';
+                    html += `
+                        <td class="data-cell"><input type="number" class="data-input" value="${monthData.t}" data-type="t" data-ridx="${rIdx}" data-midx="${mIdx}"></td>
+                        <td class="data-cell"><input type="number" class="data-input" value="${monthData.a}" data-type="a" data-ridx="${rIdx}" data-midx="${mIdx}"></td>
+                        <td class="data-cell"><input type="number" class="data-input text-blue-600 font-bold bg-blue-50/50 rounded" value="${monthData.tr}" data-type="tr" data-ridx="${rIdx}" data-midx="${mIdx}"></td>
+                        <td class="data-cell border-r border-slate-200"><input type="number" class="data-input ${diffColor}" value="${monthData.d}" data-type="d" data-ridx="${rIdx}" data-midx="${mIdx}"></td>
+                    `;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+
+            document.querySelectorAll('#admin-manpower-tbody .data-input').forEach(input => {
+                input.addEventListener('input', handleInputChanged);
+            });
+        }
+
+        function handleInputChanged(e) {
+            const input = e.target;
+            const val = parseInt(input.value) || 0;
+            const type = input.dataset.type;
+            const rIdx = input.dataset.ridx;
+            const mIdx = input.dataset.midx;
+
+            if (type === 'd') {
+                if (val < 0) {
+                    input.classList.add('text-red-500', 'font-bold');
+                    input.classList.remove('text-slate-600');
+                } else {
+                    input.classList.remove('text-red-500', 'font-bold');
+                    input.classList.add('text-slate-600');
+                }
+            }
+
+            if(type === 'current') {
+                appState.manpower[rIdx].current = val;
+            } else if (type === 'needShift') {
+                appState.manpower[rIdx].needShift = val;
+            } else {
+                appState.manpower[rIdx].data[mIdx][type] = val;
+            }
+
+            localStorage.setItem('productionManpowerApp', JSON.stringify(appState));
+            updateDashboardStats();
+            triggerAutoSaveIndicator();
+        }
+
+        function triggerAutoSaveIndicator() {
+            const statusText = document.getElementById('save-status-text');
+            if(statusText) {
+                statusText.classList.remove('text-slate-400', 'text-emerald-600', 'text-red-500');
+                statusText.classList.add('text-amber-500');
+                statusText.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> กำลังบันทึกไปที่ Google Sheet...';
+            }
+
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                pushDataToGoogleSheet();
+            }, 1500);
+        }
+
+        function generateExportArray() {
+            let arr = [];
+            arr.push([
+                "Key Process", "Need/Shift", "Current Q'ty", 
+                "Aug Target", "Aug Actual", "Aug Training", "Aug Diff",
+                "Sep Target", "Sep Actual", "Sep Training", "Sep Diff",
+                "Oct Target", "Oct Actual", "Oct Training", "Oct Diff",
+                "Nov Target", "Nov Actual", "Nov Training", "Nov Diff",
+                "Dec Target", "Dec Actual", "Dec Training", "Dec Diff"
+            ]);
+            
+            appState.manpower.forEach(m => {
+                let row = [m.role, m.needShift || 0, m.current];
+                m.data.forEach(d => { row.push(d.t, d.a, d.tr, d.d); });
+                arr.push(row);
+            });
+            return arr;
+        }
+
+        function pushDataToGoogleSheet() {
+            const gasUrl = DEFAULT_GAS_URL;
+            const statusText = document.getElementById('save-status-text');
+
+            if (!gasUrl) return;
+
+            const dataArray = generateExportArray();
+            
+            fetch(gasUrl, {
+                method: 'POST',
+                mode: 'cors',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ data: dataArray })
+            })
+            .then(response => response.text()) 
+            .then(text => {
+                let isSuccess = false;
+                try {
+                    const result = JSON.parse(text);
+                    if(result.status === 'success' || !result.error) isSuccess = true;
+                } catch(e) {
+                    if (text && text.trim().toLowerCase().includes('success')) isSuccess = true;
+                }
+
+                if(statusText) {
+                    if(isSuccess) {
+                        statusText.classList.remove('text-amber-500', 'text-red-500', 'text-slate-400');
+                        statusText.classList.add('text-emerald-600');
+                        statusText.innerHTML = '<i class="ph-fill ph-check-circle mr-2 text-lg"></i> บันทึกลง Google Sheet แล้ว';
+                    } else {
+                        throw new Error(text || 'Unknown error');
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Save Error", err);
+                if(statusText) {
+                    statusText.classList.remove('text-amber-500', 'text-emerald-600', 'text-slate-400');
+                    statusText.classList.add('text-red-500');
+                    
+                    if (err.toString().includes('Failed to fetch')) {
+                        statusText.innerHTML = '<i class="ph-fill ph-warning mr-2 text-lg"></i> บันทึกล้มเหลว (สิทธิ์ถูกบล็อก/CORS)';
+                    } else {
+                        statusText.innerHTML = '<i class="ph-fill ph-warning mr-2 text-lg"></i> บันทึกล้มเหลว (มีข้อผิดพลาด)';
+                    }
+                }
+            });
+        }
+
+        function syncFromGoogleSheet() {
+            const gasUrl = DEFAULT_GAS_URL;
+            if (!gasUrl) return;
+
+            if(isSyncing) return;
+            isSyncing = true;
+            
+            // Check for button safely
+            const btn = document.getElementById('btn-sync');
+            let originalText = '';
+            if (btn) {
+                originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> กำลังดึงข้อมูล...';
+            }
+            
+            fetch(gasUrl, {
+                method: 'GET',
+                mode: 'cors',
+                redirect: 'follow'
+            })
+            .then(response => {
+                if(!response.ok) throw new Error("Network not ok");
+                return response.text(); 
+            })
+            .then(text => {
+                isSyncing = false;
+                if (btn) btn.innerHTML = originalText;
+                
+                try {
+                    const res = JSON.parse(text);
+                    if((res.status === 'success' || res.data) && Array.isArray(res.data)) {
+                        parseGoogleSheetData(res.data);
+                        if (res.dataCurrent && res.dataCurrent.length > 0) processCurrentData(res.dataCurrent);
+                        if (res.dataTraining && res.dataTraining.length > 0) processTrainingData(res.dataTraining);
+                        if (res.dataPlanTraining && res.dataPlanTraining.length > 0) processPlanTrainingData(res.dataPlanTraining);
+                        
+                        showToast('ซิงค์ข้อมูลสำเร็จ!');
+                        localStorage.setItem('productionManpowerApp', JSON.stringify(appState));
+                        
+                        // Only render if dashboard is visible
+                        const dashboardView = document.getElementById('view-dashboard');
+                        if(dashboardView && !dashboardView.classList.contains('hidden')) {
+                            if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+                        }
+                    } else {
+                        showToast('รูปแบบข้อมูลใน Google Sheet ไม่ถูกต้อง');
+                    }
+                } catch (e) {
+                    console.error("Parse Error:", e, text);
+                    showToast('สิทธิ์ถูกบล็อก! กรุณาตั้งค่า Google Sheet เป็น "Anyone"');
+                }
+            })
+            .catch(err => {
+                isSyncing = false;
+                if (btn) btn.innerHTML = originalText;
+                console.error("Fetch Error:", err);
+                showToast('เชื่อมต่อล้มเหลว โปรดตรวจสอบสิทธิ์ (Anyone) หรือเครือข่าย');
+            });
+        }
+
+        function parseGoogleSheetData(sheetData) {
+            if(!sheetData || sheetData.length < 2) return;
+            
+            const header = sheetData[0].map(h => h ? h.toString().toLowerCase().replace(/[\s\/_]+/g, '') : '');
+            
+            const needIdx = header.findIndex(h => h.includes('need') || h.includes('shift'));
+            const currentIdx = header.findIndex(h => h.includes('current') || h.includes('qty'));
+            
+            let dataStartIdx = header.findIndex(h => h.includes('augtarget') || h.includes('aug'));
+            if(dataStartIdx === -1) {
+                dataStartIdx = Math.max(needIdx, currentIdx) + 1;
+                if(dataStartIdx < 2) dataStartIdx = 3; 
+            }
+            
+            sheetData.forEach((row, index) => {
+                if(index === 0) return; 
+                
+                const roleName = row[0] ? row[0].toString().trim() : '';
+                if(!roleName) return;
+
+                const match = appState.manpower.find(m => m.role.toLowerCase() === roleName.toLowerCase() || m.role.toLowerCase().includes(roleName.toLowerCase().split('/')[0]));
+                
+                if(match) {
+                    if (needIdx !== -1 && row[needIdx] !== undefined) match.needShift = Number(row[needIdx]) || 0;
+                    if (currentIdx !== -1 && row[currentIdx] !== undefined) match.current = Number(row[currentIdx]) || 0;
+                    
+                    for(let i=0; i<5; i++) { 
+                        const start = dataStartIdx + (i*4);
+                        if (row.length > start + 3) { 
+                            match.data[i].t = Number(row[start]) || 0;
+                            match.data[i].a = Number(row[start+1]) || 0;
+                            match.data[i].tr = Number(row[start+2]) || 0;
+                            match.data[i].d = Number(row[start+3]) || 0;
+                        }
+                    }
+                }
+            });
+            
+            localStorage.setItem('productionManpowerApp', JSON.stringify(appState));
+            if (typeof renderAdminTable === 'function') renderAdminTable();
+            
+            const dashboardView = document.getElementById('view-dashboard');
+            if(dashboardView && !dashboardView.classList.contains('hidden')) {
+                if (typeof renderCharts === 'function') renderCharts();
+                if (typeof updateDashboardStats === 'function') updateDashboardStats();
+                if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+            } else {
+                if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            }
+        }
+
+        function processCurrentData(data) {
+            if (!data || data.length < 2) return;
+            let counts = {};
+            appState.manpower.forEach(m => counts[m.role] = 0);
+            
+            let header = data[0].map(h => h ? h.toString().toLowerCase() : '');
+            let roleColIdx = header.findIndex(h => h.includes('role') || h.includes('ตำแหน่ง') || h.includes('process'));
+            
+            if (roleColIdx === -1) {
+                for(let j=0; j<data[0].length; j++) {
+                    let val = data[1][j] ? data[1][j].toString().toLowerCase() : '';
+                    if (val.includes('supervisor') || val.includes('leader') || val.includes('welding')) {
+                        roleColIdx = j; break;
+                    }
+                }
+            }
+            
+            if (roleColIdx !== -1) {
+                for(let i=1; i<data.length; i++) {
+                    let roleStr = data[i][roleColIdx] ? data[i][roleColIdx].toString().toLowerCase() : '';
+                    if (!roleStr) continue;
+                    appState.manpower.forEach(m => {
+                        let searchStr = m.role.toLowerCase();
+                        if (searchStr.includes('/')) searchStr = searchStr.split('/')[0];
+                        if (roleStr.includes(searchStr)) {
+                            counts[m.role]++;
+                        }
+                    });
+                }
+            }
+            appState.currentHeadcounts = counts;
+        }
+
+        function processTrainingData(data) {
+            if (!data || data.length < 2) return;
+            let statuses = { 'Aug': {pass:0, notPass:0, inProgress:0}, 'Sep': {pass:0, notPass:0, inProgress:0}, 'Oct': {pass:0, notPass:0, inProgress:0}, 'Nov': {pass:0, notPass:0, inProgress:0}, 'Dec': {pass:0, notPass:0, inProgress:0} };
+            
+            let header = data[0].map(h => h ? h.toString().toLowerCase() : '');
+            let monthColIdx = header.findIndex(h => h.includes('month') || h.includes('เดือน'));
+            let statusColIdx = header.findIndex(h => h.includes('status') || h.includes('สถานะ'));
+            
+            if (monthColIdx === -1 || statusColIdx === -1) {
+               for(let j=0; j<data[0].length; j++) {
+                   let val = data[1][j] ? data[1][j].toString().toLowerCase() : '';
+                   if (val.includes('aug') || val.includes('sep') || val.includes('oct')) monthColIdx = j;
+                   if (val.includes('pass') || val.includes('กำลัง') || val.includes('not')) statusColIdx = j;
+               }
+            }
+            
+            if (monthColIdx !== -1 && statusColIdx !== -1) {
+                for(let i=1; i<data.length; i++) {
+                    let mStr = data[i][monthColIdx] ? data[i][monthColIdx].toString().toLowerCase() : '';
+                    let sStr = data[i][statusColIdx] ? data[i][statusColIdx].toString().toLowerCase() : '';
+                    if (!mStr || !sStr) continue;
+                    
+                    let targetMonth = ['aug', 'sep', 'oct', 'nov', 'dec'].find(m => mStr.includes(m));
+                    if (targetMonth) {
+                        let monthKey = targetMonth.charAt(0).toUpperCase() + targetMonth.slice(1);
+                        if (sStr.includes('not pass') || sStr.includes('ไม่ผ่าน')) {
+                            statuses[monthKey].notPass++;
+                        } else if (sStr.includes('pass') || sStr.includes('ผ่าน')) {
+                            statuses[monthKey].pass++;
+                        } else if (sStr.includes('กำลัง') || sStr.includes('training') || sStr.includes('in progress') || sStr.includes('กำลังเทรน')) {
+                            statuses[monthKey].inProgress++;
+                        }
+                    }
+                }
+            }
+            appState.trainingStatuses = statuses;
+        }
+
+        function processPlanTrainingData(data) {
+            if (!data || data.length < 2) return;
+            let statuses = { 'Aug': {pass:0, notPass:0, inProgress:0}, 'Sep': {pass:0, notPass:0, inProgress:0}, 'Oct': {pass:0, notPass:0, inProgress:0}, 'Nov': {pass:0, notPass:0, inProgress:0}, 'Dec': {pass:0, notPass:0, inProgress:0} };
+            
+            let header = data[0].map(h => h ? h.toString().toLowerCase() : '');
+            let monthColIdx = header.findIndex(h => h.includes('month') || h.includes('เดือน'));
+            let statusColIdx = header.findIndex(h => h.includes('status') || h.includes('สถานะ'));
+            
+            if (monthColIdx === -1 || statusColIdx === -1) {
+               for(let j=0; j<data[0].length; j++) {
+                   let val = data[1][j] ? data[1][j].toString().toLowerCase() : '';
+                   if (val.includes('aug') || val.includes('sep') || val.includes('oct')) monthColIdx = j;
+                   if (val.includes('pass') || val.includes('กำลัง') || val.includes('not')) statusColIdx = j;
+               }
+            }
+            
+            if (monthColIdx !== -1 && statusColIdx !== -1) {
+                for(let i=1; i<data.length; i++) {
+                    let mStr = data[i][monthColIdx] ? data[i][monthColIdx].toString().toLowerCase() : '';
+                    let sStr = data[i][statusColIdx] ? data[i][statusColIdx].toString().toLowerCase() : '';
+                    if (!mStr || !sStr) continue;
+                    
+                    let targetMonth = ['aug', 'sep', 'oct', 'nov', 'dec'].find(m => mStr.includes(m));
+                    if (targetMonth) {
+                        let monthKey = targetMonth.charAt(0).toUpperCase() + targetMonth.slice(1);
+                        if (sStr.includes('not pass') || sStr.includes('ไม่ผ่าน')) {
+                            statuses[monthKey].notPass++;
+                        } else if (sStr.includes('pass') || sStr.includes('ผ่าน')) {
+                            statuses[monthKey].pass++;
+                        } else if (sStr.includes('กำลัง') || sStr.includes('training') || sStr.includes('in progress') || sStr.includes('กำลังเทรน')) {
+                            statuses[monthKey].inProgress++;
+                        }
+                    }
+                }
+            }
+            appState.planTrainingStatuses = statuses;
+        }
+
+        function exportCSV() {
+            let csvContent = "\uFEFF"; 
+            const dataArray = generateExportArray();
+            dataArray.forEach(rowArray => {
+                let row = rowArray.join(",");
+                csvContent += row + "\r\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "Production_Training_Data.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function updateDashboardLines() {
+            const container = document.getElementById('dashboard-lines-container');
+            if(!container) return;
+            
+            container.innerHTML = '';
+            appState.lines.forEach(line => {
+                const total = line.a01 + line.a02;
+                const isGoal = total >= 14 ? 'text-blue-600' : 'text-slate-800';
+                const bgClass = total >= 14 ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100';
+                
+                container.innerHTML += `
+                    <div class="${bgClass} rounded-lg p-5 text-center border flex flex-col justify-center transition hover:shadow-md">
+                        <span class="text-sm font-semibold text-slate-500 mb-1">${line.month}</span>
+                        <span class="text-2xl font-black ${isGoal}">${total} Lines</span>
+                        <span class="text-xs text-slate-400 mt-1.5 font-medium">A01: ${line.a01} | A02: ${line.a02}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function renderNewDashboardSections() {
+            // 1. Current Headcount
+            const currentContainer = document.getElementById('current-headcount-container');
+            if (currentContainer) {
+                currentContainer.innerHTML = '';
+                appState.manpower.forEach(m => {
+                    const currentCount = (appState.currentHeadcounts && appState.currentHeadcounts[m.role] !== undefined) ? appState.currentHeadcounts[m.role] : m.current; 
+                    currentContainer.innerHTML += `
+                        <div class="bg-indigo-50/50 border border-indigo-100 rounded-lg p-4 text-center hover:shadow-sm transition">
+                            <p class="text-xs font-semibold text-slate-600 mb-1 leading-tight h-8 flex items-center justify-center">${m.role}</p>
+                            <p class="text-3xl font-black text-indigo-700">${currentCount}</p>
+                            <p class="text-[10px] text-slate-400 mt-1 font-medium">คน</p>
+                        </div>
+                    `;
+                });
+            }
+
+            // วาดตารางกำลังคนสำหรับหน้าแดชบอร์ด
+            if (typeof renderDashboardTable === 'function') renderDashboardTable();
+        }
+
+        function renderDashboardTable() {
+            const tbody = document.getElementById('dashboard-manpower-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            let totalNeed = 0;
+            let totalCurrent = 0;
+            let totalData = [
+                {t:0, a:0, tr:0, d:0}, {t:0, a:0, tr:0, d:0}, 
+                {t:0, a:0, tr:0, d:0}, {t:0, a:0, tr:0, d:0}, {t:0, a:0, tr:0, d:0}
+            ];
+
+            appState.manpower.forEach((roleData) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+                
+                totalNeed += roleData.needShift || 0;
+                totalCurrent += roleData.current || 0;
+                
+                let html = `
+                    <td class="data-cell font-bold text-slate-800 bg-white sticky left-0 z-10 px-3 whitespace-nowrap border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">${roleData.role}</td>
+                    <td class="data-cell text-center border-r border-slate-200 text-slate-500 font-medium">${roleData.needShift || 0}</td>
+                    <td class="data-cell text-center border-r border-slate-200 bg-slate-50/50 font-semibold text-slate-700">${roleData.current}</td>
+                `;
+
+                roleData.data.forEach((monthData, idx) => {
+                    totalData[idx].t += monthData.t || 0;
+                    totalData[idx].a += monthData.a || 0;
+                    totalData[idx].tr += monthData.tr || 0;
+                    totalData[idx].d += monthData.d || 0;
+
+                    const diffColor = monthData.d < 0 ? 'text-red-500 font-bold' : 'text-slate-600 font-medium';
+                    html += `
+                        <td class="data-cell text-center text-slate-700">${monthData.t}</td>
+                        <td class="data-cell text-center text-slate-700">${monthData.a}</td>
+                        <td class="data-cell text-center text-blue-600 font-bold bg-blue-50/50">${monthData.tr}</td>
+                        <td class="data-cell text-center border-r border-slate-200 ${diffColor}">${monthData.d}</td>
+                    `;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+
+            const sumTr = document.createElement('tr');
+            sumTr.className = "bg-slate-100 font-bold border-t-2 border-slate-300";
+            let sumHtml = `
+                <td class="data-cell text-center text-slate-800 sticky left-0 z-10 px-3 whitespace-nowrap border-r border-slate-300 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Total</td>
+                <td class="data-cell text-center border-r border-slate-300 text-slate-800">${totalNeed}</td>
+                <td class="data-cell text-center border-r border-slate-300 text-slate-800">${totalCurrent}</td>
+            `;
+
+            totalData.forEach(mSum => {
+                const diffColor = mSum.d < 0 ? 'text-red-600' : 'text-slate-800';
+                sumHtml += `
+                    <td class="data-cell text-center text-slate-800">${mSum.t}</td>
+                    <td class="data-cell text-center text-slate-800">${mSum.a}</td>
+                    <td class="data-cell text-center text-blue-700 bg-blue-100/50">${mSum.tr}</td>
+                    <td class="data-cell text-center border-r border-slate-300 ${diffColor}">${mSum.d}</td>
+                `;
+            });
+            sumTr.innerHTML = sumHtml;
+            tbody.appendChild(sumTr);
+        }
+
+        function updateDashboardStats() {
+            let totalTrain = 0, leadTrain = 0, opsTrain = 0;
+            appState.manpower.forEach(m => {
+                let roleTotal = m.data.reduce((sum, val) => sum + val.tr, 0);
+                totalTrain += roleTotal;
+                if(m.role === 'Supervisor' || m.role === 'Leader') leadTrain += roleTotal;
+                else opsTrain += roleTotal;
+            });
+            
+            const elTotal = document.getElementById('stat-total-train');
+            if (elTotal) elTotal.innerText = totalTrain;
+            
+            const elLeaders = document.getElementById('stat-leaders');
+            if (elLeaders) elLeaders.innerText = leadTrain;
+            
+            const elOps = document.getElementById('stat-ops');
+            if (elOps) elOps.innerText = opsTrain;
+            
+            let decTarget = appState.manpower.reduce((sum, m) => sum + m.data[4].t, 0);
+            const elTarget = document.getElementById('stat-target');
+            if (elTarget) elTarget.innerText = decTarget;
+        }
+
+        function renderCharts() {
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            const months = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            Object.values(charts).forEach(chart => {
+                if(chart && typeof chart.destroy === 'function') chart.destroy();
+            });
+
+            // 1. Monthly Stacked Bar Chart
+            const loadChartEl = document.getElementById('monthlyLoadChart');
+            if (loadChartEl) {
+                const ctxLoad = loadChartEl.getContext('2d');
+                const roleColors = ['#1e40af', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'];
+                
+                const loadDatasets = appState.manpower.map((m, i) => {
+                    return {
+                        label: m.role,
+                        data: m.data.map(d => d.tr),
+                        backgroundColor: roleColors[i]
+                    };
+                });
+
+                charts.load = new Chart(ctxLoad, {
+                    type: 'bar',
+                    data: { labels: months, datasets: loadDatasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { x: { stacked: true }, y: { stacked: true } },
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+                    }
+                });
+            }
+
+            // 2. Role Distribution Donut
+            const distChartEl = document.getElementById('roleDistChart');
+            if (distChartEl) {
+                const ctxDist = distChartEl.getContext('2d');
+                const roleColors = ['#1e40af', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'];
+                const distData = appState.manpower.map(m => m.data.reduce((sum, d) => sum + d.tr, 0));
+                
+                charts.dist = new Chart(ctxDist, {
+                    type: 'doughnut',
+                    data: {
+                        labels: appState.manpower.map(m => m.role),
+                        datasets: [{ data: distData, backgroundColor: roleColors }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } }
+                    }
+                });
+            }
+
+            // 3. Trajectory Line Chart (with Filter)
+            const trajChartEl = document.getElementById('trajectoryChart');
+            if (trajChartEl) {
+                const roleSelect = document.getElementById('trajectoryRoleSelect');
+                if (roleSelect && roleSelect.options.length === 1) {
+                    appState.manpower.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.role;
+                        opt.textContent = m.role;
+                        roleSelect.appendChild(opt);
+                    });
+                }
+                const selectedRole = roleSelect ? roleSelect.value : 'All';
+                const ctxTraj = trajChartEl.getContext('2d');
+                
+                let targetTotal = [];
+                let actualTotal = [];
+                
+                if (selectedRole === 'All') {
+                    targetTotal = months.map((_, mIdx) => appState.manpower.reduce((sum, role) => sum + role.data[mIdx].t, 0));
+                    actualTotal = months.map((_, mIdx) => appState.manpower.reduce((sum, role) => sum + role.data[mIdx].a, 0));
+                } else {
+                    const roleData = appState.manpower.find(m => m.role === selectedRole);
+                    if (roleData) {
+                        targetTotal = roleData.data.map(d => d.t);
+                        actualTotal = roleData.data.map(d => d.a);
+                    }
+                }
+
+                let chartTargetLabel = selectedRole === 'All' ? 'Target Headcount (รวม)' : `Target (${selectedRole})`;
+
+                charts.traj = new Chart(ctxTraj, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            { label: chartTargetLabel, data: targetTotal, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3, borderWidth: 2 },
+                            { label: 'Actual Ready', data: actualTotal, borderColor: '#10b981', borderDash: [5, 5], backgroundColor: 'transparent', tension: 0.3, borderWidth: 2 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+        }
+
+        window.onload = () => {
+            try {
+                if (typeof initAdminForm === 'function') initAdminForm();
+                if (typeof updateDashboardLines === 'function') updateDashboardLines();
+                if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
+                if (typeof renderCharts === 'function') renderCharts();
+                
+                // ดึงข้อมูลล่าสุดจาก Google Sheet โดยอัตโนมัติเมื่อเปิดหน้าเว็บ
+                if (typeof syncFromGoogleSheet === 'function') syncFromGoogleSheet();
+            } catch (error) {
+                console.error("Error during initialization:", error);
+            }
+        };
+    </script>
+</body>
+</html>
