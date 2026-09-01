@@ -22,6 +22,12 @@
         .data-input:focus { background: #e0e7ff; box-shadow: 0 0 0 2px #818cf8; }
         .data-cell { padding: 8px 4px; border: 1px solid #e2e8f0; vertical-align: middle; }
         
+        /* Custom Scrollbar for Trainee List */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; rounded: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
         /* Toast notification setup */
         #toast {
             visibility: hidden;
@@ -45,12 +51,6 @@
             opacity: 1;
             bottom: 50px;
         }
-        
-        /* Custom scrollbar for lists */
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -84,6 +84,23 @@
         <!-- ========================================== -->
         <div id="view-dashboard" class="space-y-6 animate-[fadeIn_0.3s_ease-out]">
             
+            <!-- Action Buttons & Status (Dashboard) -->
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center">
+                    <span class="save-status-text text-sm font-medium text-slate-400 flex items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-colors">
+                        <i class="ph-fill ph-cloud-check mr-2 text-lg"></i> พร้อมใช้งาน
+                    </span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="exportCSV()" class="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition flex items-center shadow-sm font-medium">
+                        <i class="ph ph-download-simple mr-2 text-lg"></i> ดาวน์โหลด CSV
+                    </button>
+                    <button onclick="syncFromGoogleSheet()" class="btn-sync px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
+                        <i class="ph ph-arrows-clockwise mr-2 text-lg"></i> ซิงค์จาก Sheet ล่าสุด
+                    </button>
+                </div>
+            </div>
+            
             <!-- Section 1: Current Headcount by Role -->
             <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
                 <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
@@ -95,7 +112,7 @@
                 </div>
             </div>
 
-            <!-- Section 4: Line Targets -->
+            <!-- Section 2: Line Targets -->
             <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
                 <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
                     <span class="w-2.5 h-2.5 rounded-full bg-blue-500 mr-2.5"></span>
@@ -106,7 +123,7 @@
                 </div>
             </div>
 
-            <!-- Section 5: Dashboard Manpower Table (ตารางกำลังคน) -->
+            <!-- Section 3: Dashboard Manpower Table (ตารางกำลังคน) -->
             <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
                 <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
                     <span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-2.5"></span>
@@ -142,21 +159,18 @@
                 </div>
             </div>
 
-            <!-- Section 6: Trainee List (รายชื่อพนักงาน) - ADDED SECTION -->
-            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200 mt-6">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-base font-bold text-slate-900 flex items-center tracking-wide">
-                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500 mr-2.5"></span>
-                        รายชื่อพนักงานฝึกอบรมแยกตามเดือน (TRAINEE LIST)
-                    </h3>
-                </div>
-                <!-- Container for dynamically generated month cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4" id="dashboard-trainee-list-container">
-                    <!-- Data populated via JS -->
+            <!-- Section 4: Trainee List -->
+            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2.5"></span>
+                    รายชื่อพนักงานฝึกอบรมแยกตามเดือน (TRAINEE LIST)
+                </h3>
+                <div id="dashboard-trainee-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- Trainee lists populated via JS -->
                 </div>
             </div>
 
-            <!-- Charts Section -->
+            <!-- Section 5: Charts Section -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Training Volume Stacked Bar -->
                 <div class="glass-panel p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
@@ -198,7 +212,7 @@
                 <h2 class="text-2xl font-bold text-slate-800 flex items-center">
                     <i class="ph-fill ph-book-open text-blue-600 mr-3"></i> รายละเอียดแผนการฝึกอบรมพนักงานสายการผลิต
                 </h2>
-                <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-medium text-sm border border-blue-100 shadow-sm">
+                <div id="training-batch-badge" class="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-medium text-sm border border-blue-100 shadow-sm">
                     <i class="ph ph-calendar-blank mr-1"></i> รอบเดือนสิงหาคม (Batch 1)
                 </div>
             </div>
@@ -222,8 +236,8 @@
                         <div class="flex items-start">
                             <i class="ph-fill ph-calendar-check text-emerald-500 mt-1 mr-3 text-lg"></i>
                             <div>
-                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
-                                <p class="text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
+                                <p class="dynamic-date-label text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
+                                <p class="dynamic-date-range text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
                             </div>
                         </div>
                         <div class="flex items-start">
@@ -279,8 +293,8 @@
                         <div class="flex items-start">
                             <i class="ph-fill ph-calendar-check text-emerald-500 mt-1 mr-3 text-lg"></i>
                             <div>
-                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
-                                <p class="text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
+                                <p class="dynamic-date-label text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
+                                <p class="dynamic-date-range text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
                             </div>
                         </div>
                         <div class="flex items-start">
@@ -336,8 +350,8 @@
                         <div class="flex items-start">
                             <i class="ph-fill ph-calendar-check text-emerald-500 mt-1 mr-3 text-lg"></i>
                             <div>
-                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
-                                <p class="text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
+                                <p class="dynamic-date-label text-xs font-bold text-slate-400 uppercase tracking-wider">วันที่เริ่ม - จบ (รอบ ส.ค.)</p>
+                                <p class="dynamic-date-range text-sm font-medium text-slate-800">01 Aug - 31 Aug</p>
                             </div>
                         </div>
                         <div class="flex items-start">
@@ -387,30 +401,49 @@
         <!-- TAB 3: ADMIN / DATA MANAGEMENT             -->
         <!-- ========================================== -->
         <div id="view-admin" class="hidden space-y-8 animate-[fadeIn_0.3s_ease-out]">
-            <!-- Action Buttons & Status -->
-            <div class="flex justify-between items-center">
-                <div class="flex items-center">
-                    <span id="save-status-text" class="text-sm font-medium text-slate-400 flex items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                        <i class="ph-fill ph-cloud-check mr-2 text-lg"></i> พร้อมใช้งาน
-                    </span>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="exportCSV()" class="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition flex items-center shadow-sm font-medium">
-                        <i class="ph ph-download-simple mr-2 text-lg"></i> ดาวน์โหลด CSV
-                    </button>
-                    <button onclick="syncFromGoogleSheet()" id="btn-sync" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
-                        <i class="ph ph-arrows-clockwise mr-2 text-lg"></i> ซิงค์จาก Sheet ล่าสุด
+            
+            <!-- Admin Login Screen -->
+            <div id="admin-login" class="flex flex-col items-center justify-center py-16">
+                <div class="glass-panel p-8 rounded-xl shadow-sm border border-slate-200 max-w-md w-full text-center">
+                    <div class="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="ph-fill ph-lock-key text-3xl"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-2">เข้าสู่ระบบจัดการข้อมูล</h2>
+                    <p class="text-sm text-slate-500 mb-6">กรุณาใส่รหัสผ่านเพื่อเข้าถึงการตั้งค่าและแก้ไขข้อมูล</p>
+                    <input type="password" id="admin-password-input" class="w-full border border-slate-300 rounded-lg p-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition mb-4 text-center tracking-widest text-lg" placeholder="••••••••" onkeypress="handlePasswordKeypress(event)">
+                    <button onclick="verifyAdminPassword()" class="w-full bg-slate-800 text-white font-medium rounded-lg py-3 hover:bg-slate-700 transition shadow-sm">
+                        ยืนยันรหัสผ่าน
                     </button>
                 </div>
             </div>
 
-            <!-- Section 1: Line Targets -->
-            <div id="admin-lines-form">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">1. เป้าหมายสายการผลิต (Line Targets)</h3>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="admin-lines-container">
-                    <!-- Data populated via JS -->
+            <!-- Admin Content (Hidden by default until authenticated) -->
+            <div id="admin-content" class="hidden space-y-8">
+                
+                <!-- Action Buttons & Status -->
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center">
+                        <span class="save-status-text text-sm font-medium text-slate-400 flex items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-colors">
+                            <i class="ph-fill ph-cloud-check mr-2 text-lg"></i> พร้อมใช้งาน
+                        </span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="exportCSV()" class="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition flex items-center shadow-sm font-medium">
+                            <i class="ph ph-download-simple mr-2 text-lg"></i> ดาวน์โหลด CSV
+                        </button>
+                        <button onclick="syncFromGoogleSheet()" class="btn-sync px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
+                            <i class="ph ph-arrows-clockwise mr-2 text-lg"></i> ซิงค์จาก Sheet ล่าสุด
+                        </button>
+                    </div>
                 </div>
-            </div>
+
+                <!-- Section 1: Line Targets -->
+                <div id="admin-lines-form">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">1. เป้าหมายสายการผลิต (Line Targets)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="admin-lines-container">
+                        <!-- Data populated via JS -->
+                    </div>
+                </div>
 
             <!-- Section 2: Manpower Table -->
             <div>
@@ -444,12 +477,14 @@
                     </div>
                 </div>
             </div>
+        
+        </div> <!-- End of admin-content -->
 
-        </div>
-    </main>
+    </div>
+</main>
 
-    <!-- Toast Notification -->
-    <div id="toast">Message</div>
+<!-- Toast Notification -->
+<div id="toast">Message</div>
 
     <script>
         // 1. DATA STATE & INITIALIZATION
@@ -479,7 +514,8 @@
                   data: [{t:16, a:14, tr:14, d:-2}, {t:28, a:28, tr:12, d:0}, {t:44, a:40, tr:10, d:-4}, {t:56, a:50, tr:6, d:-6}, {t:56, a:56, tr:0, d:0}] },
                 { role: 'Repair', needShift: 3, current: 13, 
                   data: [{t:12, a:13, tr:9, d:1}, {t:21, a:22, tr:8, d:1}, {t:33, a:30, tr:6, d:-3}, {t:42, a:36, tr:6, d:-6}, {t:42, a:42, tr:0, d:0}] }
-            ]
+            ],
+            trainees: []
         };
 
         let appState = JSON.parse(localStorage.getItem('productionManpowerApp')) || defaultData;
@@ -493,6 +529,7 @@
         let charts = {}; 
         let autoSaveTimeout = null;
         let isSyncing = false;
+        let isAdminAuthenticated = false; // Add auth state
 
         function showToast(message) {
             const toast = document.getElementById("toast");
@@ -528,7 +565,47 @@
                 if (typeof renderCharts === 'function') renderCharts(); 
                 if (typeof updateDashboardLines === 'function') updateDashboardLines();
                 if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
-                if (typeof renderTraineeList === 'function') renderTraineeList(); // Call render trainee list
+                if (typeof renderTraineeList === 'function') renderTraineeList();
+            } else if (tabId === 'admin') {
+                // Auth check for Admin tab
+                const loginView = document.getElementById('admin-login');
+                const contentView = document.getElementById('admin-content');
+                
+                if (!isAdminAuthenticated) {
+                    if(loginView) loginView.classList.remove('hidden');
+                    if(contentView) contentView.classList.add('hidden');
+                    setTimeout(() => {
+                        const passInput = document.getElementById('admin-password-input');
+                        if (passInput) passInput.focus();
+                    }, 100);
+                } else {
+                    if(loginView) loginView.classList.add('hidden');
+                    if(contentView) contentView.classList.remove('hidden');
+                }
+            }
+        }
+
+        // --- NEW FUNCTIONS FOR ADMIN AUTH ---
+        function verifyAdminPassword() {
+            const input = document.getElementById('admin-password-input');
+            if (input && input.value === 'Naiice22') {
+                isAdminAuthenticated = true;
+                document.getElementById('admin-login').classList.add('hidden');
+                document.getElementById('admin-content').classList.remove('hidden');
+                showToast('เข้าสู่ระบบจัดการข้อมูลสำเร็จ');
+                input.value = ''; 
+            } else {
+                showToast('รหัสผ่านไม่ถูกต้อง!');
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
+            }
+        }
+
+        function handlePasswordKeypress(e) {
+            if (e.key === 'Enter') {
+                verifyAdminPassword();
             }
         }
 
@@ -640,12 +717,13 @@
         }
 
         function triggerAutoSaveIndicator() {
-            const statusText = document.getElementById('save-status-text');
-            if(statusText) {
+            // Update all status texts in the UI (Dashboard and Admin tabs)
+            const statusTexts = document.querySelectorAll('.save-status-text');
+            statusTexts.forEach(statusText => {
                 statusText.classList.remove('text-slate-400', 'text-emerald-600', 'text-red-500');
                 statusText.classList.add('text-amber-500');
                 statusText.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> กำลังบันทึกไปที่ Google Sheet...';
-            }
+            });
 
             clearTimeout(autoSaveTimeout);
             autoSaveTimeout = setTimeout(() => {
@@ -674,7 +752,7 @@
 
         function pushDataToGoogleSheet() {
             const gasUrl = DEFAULT_GAS_URL;
-            const statusText = document.getElementById('save-status-text');
+            const statusTexts = document.querySelectorAll('.save-status-text');
 
             if (!gasUrl) return;
 
@@ -697,19 +775,19 @@
                     if (text && text.trim().toLowerCase().includes('success')) isSuccess = true;
                 }
 
-                if(statusText) {
+                statusTexts.forEach(statusText => {
                     if(isSuccess) {
                         statusText.classList.remove('text-amber-500', 'text-red-500', 'text-slate-400');
                         statusText.classList.add('text-emerald-600');
                         statusText.innerHTML = '<i class="ph-fill ph-check-circle mr-2 text-lg"></i> บันทึกลง Google Sheet แล้ว';
-                    } else {
-                        throw new Error(text || 'Unknown error');
                     }
-                }
+                });
+                
+                if(!isSuccess) throw new Error(text || 'Unknown error');
             })
             .catch(err => {
                 console.error("Save Error", err);
-                if(statusText) {
+                statusTexts.forEach(statusText => {
                     statusText.classList.remove('text-amber-500', 'text-emerald-600', 'text-slate-400');
                     statusText.classList.add('text-red-500');
                     
@@ -718,7 +796,7 @@
                     } else {
                         statusText.innerHTML = '<i class="ph-fill ph-warning mr-2 text-lg"></i> บันทึกล้มเหลว (มีข้อผิดพลาด)';
                     }
-                }
+                });
             });
         }
 
@@ -729,12 +807,15 @@
             if(isSyncing) return;
             isSyncing = true;
             
-            // Check for button safely
-            const btn = document.getElementById('btn-sync');
+            // Check for buttons safely in both views
+            const btns = document.querySelectorAll('.btn-sync');
             let originalText = '';
-            if (btn) {
-                originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> กำลังดึงข้อมูล...';
+            if (btns.length > 0) {
+                originalText = btns[0].innerHTML;
+                btns.forEach(btn => {
+                    btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> กำลังดึงข้อมูล...';
+                    btn.disabled = true;
+                });
             }
             
             fetch(gasUrl, {
@@ -748,7 +829,10 @@
             })
             .then(text => {
                 isSyncing = false;
-                if (btn) btn.innerHTML = originalText;
+                btns.forEach(btn => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
                 
                 try {
                     const res = JSON.parse(text);
@@ -758,7 +842,7 @@
                         if (res.dataTraining && res.dataTraining.length > 0) processTrainingData(res.dataTraining);
                         if (res.dataPlanTraining && res.dataPlanTraining.length > 0) processPlanTrainingData(res.dataPlanTraining);
                         
-                        // เพิ่มการประมวลผลสำหรับรายชื่อพนักงาน
+                        // Process the newly added Trainee list data
                         if (res.dataNameTraining && res.dataNameTraining.length > 0) {
                             processNameTrainingData(res.dataNameTraining);
                         }
@@ -782,7 +866,10 @@
             })
             .catch(err => {
                 isSyncing = false;
-                if (btn) btn.innerHTML = originalText;
+                btns.forEach(btn => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
                 console.error("Fetch Error:", err);
                 showToast('เชื่อมต่อล้มเหลว โปรดตรวจสอบสิทธิ์ (Anyone) หรือเครือข่าย');
             });
@@ -948,7 +1035,6 @@
             appState.planTrainingStatuses = statuses;
         }
 
-        // --- NEW FUNCTION: PROCESS NAME TRAINING DATA ---
         function processNameTrainingData(data) {
             if (!data || data.length < 2) return;
             let trainees = [];
@@ -1120,7 +1206,6 @@
             tbody.appendChild(sumTr);
         }
 
-        // --- NEW FUNCTION: RENDER TRAINEE LIST ---
         function renderTraineeList() {
             const container = document.getElementById('dashboard-trainee-list-container');
             if (!container) return;
@@ -1151,7 +1236,7 @@
                     <div class="bg-white rounded-xl border border-slate-200 border-t-4 ${monthBorder} shadow-sm overflow-hidden flex flex-col h-72">
                         <div class="p-3 border-b border-slate-100 bg-slate-50/50">
                             <h4 class="font-bold text-slate-800 text-center mb-2">${m} <span class="text-xs font-normal text-slate-500">(${monthNames[m]})</span></h4>
-                            <div class="flex justify-center space-x-1.5 text-[10px] font-bold uppercase tracking-wider flex-wrap gap-y-1">
+                            <div class="flex justify-center space-x-1 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                                 <span class="bg-emerald-100 text-emerald-700 px-1.5 py-1 rounded flex items-center">
                                     <i class="ph-fill ph-check-circle mr-1"></i> Pass: ${passCount}
                                 </span>
@@ -1331,13 +1416,54 @@
             }
         }
 
+        // --- NEW FUNCTION: UPDATE DATES TO CURRENT MONTH ---
+        function updateDynamicDates() {
+            const date = new Date();
+            const monthIndex = date.getMonth(); // 0 = Jan, 1 = Feb, etc.
+            const year = date.getFullYear();
+            
+            // หาว่าวันสุดท้ายของเดือนนี้คือวันที่เท่าไหร่ (เช่น 30 หรือ 31)
+            const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+
+            // ชุดข้อความเดือนรูปแบบต่างๆ
+            const monthNamesEnShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const monthNamesThShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const monthNamesThFull = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+            const enShort = monthNamesEnShort[monthIndex];
+            const thShort = monthNamesThShort[monthIndex];
+            const thFull = monthNamesThFull[monthIndex];
+
+            // คำนวณ Batch อัตโนมัติ (อิงจาก สิงหาคม เป็น Batch 1)
+            let batchNum = monthIndex >= 7 ? monthIndex - 6 : monthIndex + 6;
+
+            const dateRangeStr = `01 ${enShort} - ${lastDay} ${enShort}`;
+            const labelStr = `วันที่เริ่ม - จบ (รอบ ${thShort})`;
+            const badgeStr = `<i class="ph ph-calendar-blank mr-1"></i> รอบเดือน${thFull} (Batch ${batchNum})`;
+
+            // อัปเดตป้ายบอก Batch มุมขวาบน
+            const badgeEl = document.getElementById('training-batch-badge');
+            if (badgeEl) badgeEl.innerHTML = badgeStr;
+
+            // อัปเดต Label ทุกใบ
+            const labels = document.querySelectorAll('.dynamic-date-label');
+            labels.forEach(el => el.innerText = labelStr);
+
+            // อัปเดตช่วงวันที่ (01 - 30/31) ทุกใบ
+            const ranges = document.querySelectorAll('.dynamic-date-range');
+            ranges.forEach(el => el.innerText = dateRangeStr);
+        }
+
         window.onload = () => {
             try {
                 if (typeof initAdminForm === 'function') initAdminForm();
                 if (typeof updateDashboardLines === 'function') updateDashboardLines();
                 if (typeof renderNewDashboardSections === 'function') renderNewDashboardSections();
-                if (typeof renderTraineeList === 'function') renderTraineeList(); // Initialize new Trainee List
+                if (typeof renderTraineeList === 'function') renderTraineeList();
                 if (typeof renderCharts === 'function') renderCharts();
+                
+                // เรียกใช้ฟังก์ชันอัปเดตวันที่ให้เป็นเดือนปัจจุบันทันทีที่เปิดหน้าเว็บ
+                updateDynamicDates();
                 
                 // ดึงข้อมูลล่าสุดจาก Google Sheet โดยอัตโนมัติเมื่อเปิดหน้าเว็บ
                 if (typeof syncFromGoogleSheet === 'function') syncFromGoogleSheet();
