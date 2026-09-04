@@ -187,10 +187,15 @@
 
             <!-- Section 4: Trainee List -->
             <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
-                <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2.5"></span>
-                    รายชื่อพนักงานฝึกอบรมแยกตามเดือน (TRAINEE LIST)
-                </h3>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
+                    <h3 class="text-base font-bold text-slate-900 flex items-center tracking-wide m-0">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2.5"></span>
+                        รายชื่อพนักงานฝึกอบรมแยกตามเดือน (TRAINEE LIST)
+                    </h3>
+                    <button onclick="exportTraineeCSV()" class="px-4 py-2 bg-slate-800 text-white text-xs rounded-lg hover:bg-slate-700 transition flex items-center shadow-sm font-medium">
+                        <i class="ph ph-download-simple mr-2 text-sm"></i> Export CSV
+                    </button>
+                </div>
                 <div id="dashboard-trainee-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <!-- Trainee lists populated via JS -->
                 </div>
@@ -1239,6 +1244,32 @@
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
             link.setAttribute("download", "Production_Training_Data.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- NEW FUNCTION: EXPORT TRAINEE CSV ---
+        function exportTraineeCSV() {
+            let csvContent = "\uFEFF"; 
+            csvContent += "Name,Role,Month,Status\r\n"; // Header
+            
+            const allTrainees = appState.trainees || [];
+            allTrainees.forEach(t => {
+                // ใส่ "" ครอบข้อความกันกรณีที่มีเครื่องหมายลูกน้ำในชื่อหรือข้อมูล
+                let name = `"${(t.name || '').replace(/"/g, '""')}"`;
+                let role = `"${(t.role || '').replace(/"/g, '""')}"`;
+                let month = `"${(t.month || '').replace(/"/g, '""')}"`;
+                let status = `"${(t.status || '').replace(/"/g, '""')}"`;
+                csvContent += `${name},${role},${month},${status}\r\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "Trainee_List.csv"); // ชื่อไฟล์ที่ดาวน์โหลด
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
