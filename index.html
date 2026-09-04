@@ -159,6 +159,32 @@
                 </div>
             </div>
 
+            <!-- Section: Daily Training Summary (เพิ่มใหม่) -->
+            <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-600 mr-2.5"></span>
+                    สรุปข้อมูลการเทรนนิ่งรายวัน (DAILY TRAINING SUMMARY)
+                </h3>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <!-- Left: Bar Chart & Leaders -->
+                    <div class="flex flex-col w-full">
+                        <div class="relative h-64 w-full">
+                            <canvas id="dailyBarChart"></canvas>
+                        </div>
+                        <div id="daily-leaders-container" class="grid gap-2 mt-4 px-2 lg:px-6">
+                            <!-- Data populated via JS -->
+                        </div>
+                    </div>
+                    <!-- Right: Line Chart -->
+                    <div class="flex flex-col w-full">
+                        <h4 class="text-sm font-bold text-slate-800 text-center mb-2 mt-4 xl:mt-0">จำนวนคนฝึกอบรม รายวัน</h4>
+                        <div class="relative h-64 w-full">
+                            <canvas id="dailyLineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Section 4: Trainee List -->
             <div class="glass-panel p-6 rounded-xl shadow-sm border border-slate-200">
                 <h3 class="text-base font-bold text-slate-900 mb-5 flex items-center tracking-wide">
@@ -842,9 +868,14 @@
                         if (res.dataTraining && res.dataTraining.length > 0) processTrainingData(res.dataTraining);
                         if (res.dataPlanTraining && res.dataPlanTraining.length > 0) processPlanTrainingData(res.dataPlanTraining);
                         
-                        // Process the newly added Trainee list data
+                        // เพิ่มการประมวลผลสำหรับรายชื่อพนักงาน
                         if (res.dataNameTraining && res.dataNameTraining.length > 0) {
                             processNameTrainingData(res.dataNameTraining);
+                        }
+
+                        // เพิ่มการประมวลผลสำหรับกราฟรายวัน
+                        if (res.dataDaily && res.dataDaily.length > 0) {
+                            processDailySummaryData(res.dataDaily);
                         }
                         
                         showToast('ซิงค์ข้อมูลสำเร็จ!');
@@ -1080,6 +1111,119 @@
                 }
             }
             appState.trainees = trainees;
+        }
+
+        // --- NEW FUNCTION: PROCESS DAILY SUMMARY DATA ---
+        function processDailySummaryData(data) {
+            if (!data || data.length < 2) return;
+            
+            // หาบรรทัดที่เป็น Header (บรรทัดที่มีคำว่า Leader Name)
+            let headerRowIdx = -1;
+            for (let i = 0; i < Math.min(5, data.length); i++) {
+                let rowStr = data[i].join('').toLowerCase();
+                if (rowStr.includes('leader name') || rowStr.includes('picture')) {
+                    headerRowIdx = i;
+                    break;
+                }
+            }
+            
+            if (headerRowIdx === -1) return;
+            
+            let header = data[headerRowIdx].map(h => h ? h.toString().trim() : '');
+            
+            // หาตำแหน่งของคอลัมน์ต่างๆ
+            let leaderIdx = header.findIndex(h => h.toLowerCase().includes('leader name'));
+            let picIdx = header.findIndex(h => h.toLowerCase().includes('picture'));
+            let tQtyIdx = header.findIndex(h => h.toLowerCase().includes("training q'ty") || h.toLowerCase().includes('training qty'));
+            let passIdx = header.findIndex(h => h.toLowerCase() === 'pass' || h.toLowerCase().includes('ผ่าน'));
+            
+            // คอลัมน์ Line คือคอลัมน์ก่อนหน้า Leader Name (เนื่องจากใน Sheet ไม่ได้ใส่ชื่อหัวตารางไว้)
+            let lineIdx = leaderIdx > 0 ? leaderIdx - 1 : 1; 
+
+            // คอลัมน์วันที่เริ่มหลังจากคอลัมน์ Pass
+            let dateStartIndex = passIdx + 1;
+            
+            // --- เก็บ Header ทุกวัน แต่พล็อตข้อมูลแค่ T-1 ---
+            let dateHeaders = [];
+            let allDateIndices = [];
+            let isPastDate = [];
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // รีเซ็ตเวลาเป็นเที่ยงคืนเพื่อเปรียบเทียบแค่วันที่
+            const currentYear = today.getFullYear();
+
+            for (let j = dateStartIndex; j < header.length; j++) {
+                let h = header[j];
+                if (!h) continue;
+                
+                let cleanH = h.toString().trim();
+                dateHeaders.push(cleanH);
+                allDateIndices.push(j);
+
+                let parsedDate = new Date(cleanH + " " + currentYear); // แปลงอักษรเช่น "4 Sep" เป็นวันที่
+                
+                // ตรวจสอบว่าเป็นวันที่ และน้อยกว่าวันนี้ (T-1) หรือไม่
+                if (!isNaN(parsedDate)) {
+                    isPastDate.push(parsedDate < today);
+                } else {
+                    isPastDate.push(false); // ถ้าแปลงเป็นวันที่ไม่ได้ ให้ถือว่าเป็น null ไปก่อน
+                }
+            }
+
+            let linesData = [];
+
+            for (let i = headerRowIdx + 1; i < data.length; i++) {
+                let row = data[i];
+                if (!row[lineIdx] && !row[leaderIdx]) continue; // ข้ามบรรทัดว่าง
+
+                let lineName = row[lineIdx] ? row[lineIdx].toString().trim() : '';
+                let leaderName = row[leaderIdx] ? row[leaderIdx].toString().trim() : '';
+                let picture = row[picIdx] ? row[picIdx].toString().trim() : '';
+                let tQty = parseInt(row[tQtyIdx]) || 0;
+                let pass = parseInt(row[passIdx]) || 0;
+
+                // แปลงลิงก์รูปภาพ Google Drive (Thumbnail API)
+                if (picture) {
+                    let fileId = "";
+                    if (picture.includes('drive.google.com')) {
+                        let match = picture.match(/\/d\/([a-zA-Z0-9_-]+)/) || picture.match(/id=([a-zA-Z0-9_-]+)/);
+                        if (match && match[1]) {
+                            fileId = match[1];
+                        }
+                    } else if (!picture.startsWith('http') && picture.length > 15) {
+                        fileId = picture;
+                    }
+                    
+                    if (fileId) {
+                        picture = `https://drive.google.com/thumbnail?id=${fileId}&sz=w200-h200`;
+                    }
+                }
+
+                // --- ดึงข้อมูลรายวันแบบแยก Line ---
+                // ถ้าเป็นวันที่ < today ให้ใส่ค่าปกติ ถ้าไม่ใช่ให้ใส่ null (กราฟจะหยุดวาด)
+                let dailyValues = [];
+                for (let k = 0; k < allDateIndices.length; k++) {
+                    if (isPastDate[k]) {
+                        dailyValues.push(parseInt(row[allDateIndices[k]]) || 0);
+                    } else {
+                        dailyValues.push(null);
+                    }
+                }
+
+                linesData.push({
+                    line: lineName,
+                    leader: leaderName,
+                    picture: picture,
+                    tQty: tQty,
+                    pass: pass,
+                    dailyValues: dailyValues
+                });
+            }
+            
+            appState.dailySummary = {
+                lines: linesData,
+                dateLabels: dateHeaders
+            };
         }
 
         function exportCSV() {
@@ -1413,6 +1557,120 @@
                         scales: { y: { beginAtZero: true } }
                     }
                 });
+            }
+
+            // 4. Daily Summary Charts
+            const dailyBarChartEl = document.getElementById('dailyBarChart');
+            const leadersContainer = document.getElementById('daily-leaders-container');
+            const dailyLineChartEl = document.getElementById('dailyLineChart');
+
+            if (dailyBarChartEl && appState.dailySummary && appState.dailySummary.lines) {
+                let linesData = appState.dailySummary.lines;
+                
+                // --- ข้อมูลสำหรับกราฟแท่ง ---
+                let lineLabels = linesData.map(d => d.line);
+                let tQtyData = linesData.map(d => d.tQty);
+                let passData = linesData.map(d => d.pass);
+
+                const ctxBar = dailyBarChartEl.getContext('2d');
+                charts.dailyBar = new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: lineLabels,
+                        datasets: [
+                            { label: "Training Q'ty", data: tQtyData, backgroundColor: '#135e75', borderWidth: 1, borderColor: '#0c4254' },
+                            { label: "Pass", data: passData, backgroundColor: '#1f89ab', borderWidth: 1, borderColor: '#135e75' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        layout: { padding: { top: 20 } }, // เพิ่มพื้นที่ด้านบนให้ตัวเลขไม่โดนตัด
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } },
+                        scales: { 
+                            y: { beginAtZero: true },
+                            x: { 
+                                grid: { display: false },
+                                ticks: { font: { weight: 'bold', size: 14 }, color: '#1e293b' }
+                            }
+                        }
+                    },
+                    // เพิ่ม Plugin พิเศษเพื่อวาดตัวเลขบนกราฟแท่ง
+                    plugins: [{
+                        id: 'topLabels',
+                        afterDatasetsDraw(chart) {
+                            const { ctx } = chart;
+                            chart.data.datasets.forEach((dataset, i) => {
+                                const meta = chart.getDatasetMeta(i);
+                                meta.data.forEach((bar, index) => {
+                                    const data = dataset.data[index];
+                                    if (data > 0) {
+                                        ctx.fillStyle = '#334155';
+                                        ctx.font = 'bold 11px "Inter", sans-serif';
+                                        ctx.textAlign = 'center';
+                                        ctx.textBaseline = 'bottom';
+                                        ctx.fillText(data, bar.x, bar.y - 4);
+                                    }
+                                });
+                            });
+                        }
+                    }]
+                });
+
+                // --- วาดรูปโปรไฟล์วงกลมและชื่อ Leader ---
+                if (leadersContainer) {
+                    leadersContainer.style.gridTemplateColumns = `repeat(${linesData.length || 1}, minmax(0, 1fr))`;
+                    leadersContainer.innerHTML = '';
+                    linesData.forEach(d => {
+                        const imgHtml = d.picture 
+                            ? `<img src="${d.picture}" onerror="this.src='https://placehold.co/100x100/e2e8f0/64748b?text=${d.leader?.[0]||'U'}'" class="w-[60px] h-[60px] object-cover mx-auto rounded-full bg-slate-200 border-2 border-slate-100 shadow-sm" alt="${d.leader}">`
+                            : `<div class="w-[60px] h-[60px] mx-auto rounded-full bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-2xl border-2 border-slate-100 shadow-sm"><i class="ph-fill ph-user"></i></div>`;
+                        
+                        leadersContainer.innerHTML += `
+                            <div class="flex flex-col items-center justify-start mt-2">
+                                ${imgHtml}
+                                <span class="mt-2.5 text-[13px] font-bold text-slate-800 tracking-wide">${d.leader || '-'}</span>
+                            </div>
+                        `;
+                    });
+                }
+                
+                // --- ข้อมูลสำหรับกราฟเส้น (แยกตาม Line) ---
+                if(dailyLineChartEl && appState.dailySummary.dateLabels) {
+                    const lineColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#64748b'];
+                    
+                    const lineDatasets = linesData.map((d, index) => {
+                        return { 
+                            label: d.line || `Line ${index + 1}`, 
+                            data: d.dailyValues, 
+                            borderColor: lineColors[index % lineColors.length], 
+                            backgroundColor: 'transparent', 
+                            tension: 0.4, 
+                            borderWidth: 2.5, 
+                            pointBackgroundColor: lineColors[index % lineColors.length] 
+                        };
+                    });
+
+                    const ctxLine = dailyLineChartEl.getContext('2d');
+                    charts.dailyLine = new Chart(ctxLine, {
+                        type: 'line',
+                        data: {
+                            labels: appState.dailySummary.dateLabels,
+                            datasets: lineDatasets
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { position: 'top', align: 'end', labels: { boxWidth: 12, usePointStyle: true, pointStyle: 'line' } } 
+                            },
+                            scales: { 
+                                y: { beginAtZero: true, grid: { display: false } },
+                                x: { 
+                                    ticks: { font: { weight: 'bold', size: 11 } }
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
 
